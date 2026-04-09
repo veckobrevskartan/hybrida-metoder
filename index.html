@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Svensk OSINT – Hybridmethods</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f9fb;--surface:#fff;--surface2:#f1f3f7;
+  --border:#e2e6ed;--border2:#d0d5df;
+  --text:#1a1d2e;--text2:#4b5268;--text3:#8c93a8;
+  --accent:#1a3d7c;--accent-hover:#132d5c;--accent-light:#e8eef8;
+  --krig:#991b1b;--krig-bg:#fef2f2;--krig-border:#fecaca;
+  --grazon:#92400e;--grazon-bg:#fffbeb;--grazon-border:#fde68a;
+  --fred:#065f46;--fred-bg:#f0fdf4;--fred-border:#a7f3d0;
+  --dot:#dc2626;--dot-se:#1d4ed8;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+  --nav-h:44px;--hdr-h:52px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;overflow:hidden}
+#shell{display:flex;flex-direction:column;height:100vh}
+
+/* ── HEADER ── */
+#site-header{height:var(--hdr-h);background:var(--accent);flex-shrink:0;display:flex;align-items:center;padding:0 20px;gap:12px;border-bottom:2px solid rgba(255,255,255,.1)}
+.site-logo{font-family:var(--mono);font-size:14px;font-weight:500;color:#fff;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;border-radius:50%;background:#60a5fa;flex-shrink:0}
+.site-tagline{font-size:11px;color:rgba(255,255,255,.5);font-family:var(--mono);border-left:1px solid rgba(255,255,255,.2);padding-left:12px;white-space:nowrap}
+.hdr-space{flex:1}
+.hdr-meta{font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.4)}
+
+/* ── NAV ── */
+#nav-bar{height:var(--nav-h);background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;padding:0 20px}
+.nav-btn{font-family:var(--mono);font-size:12px;padding:0 16px;height:var(--nav-h);border:none;border-bottom:2px solid transparent;background:transparent;color:var(--text2);cursor:pointer;transition:all .15s}
+.nav-btn:hover{color:var(--accent)}
+.nav-btn.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:500}
+.nav-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+.nav-count{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text3)}
+
+/* ── PAGES ── */
+.page{display:none;flex:1;overflow:hidden;min-height:0}
+.page.active{display:flex}
+.page-inner{display:flex;flex:1;overflow:hidden;min-height:0}
+.sidebar{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:12px}
+.main-area{flex:1;overflow-y:auto;padding:20px 24px 40px;min-width:0}
+
+/* ── FILTERS ── */
+.filter-section{display:flex;flex-direction:column;gap:6px}
+.filter-label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.filter-chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-family:var(--mono);font-size:10px;padding:3px 8px;border:1px solid var(--border2);border-radius:3px;cursor:pointer;transition:all .15s;color:var(--text2);background:transparent}
+.chip:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.fsel{background:var(--surface);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:11px;padding:5px 8px;border-radius:3px;outline:none;width:100%;cursor:pointer}
+.filter-hint{font-size:10px;color:var(--text3);font-family:var(--mono)}
+.sidebar-stats{font-family:var(--mono);font-size:10px;color:var(--text3);border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:4px;margin-top:auto}
+.stat-row{display:flex;justify-content:space-between}
+.stat-row span:last-child{color:var(--text2)}
+
+/* ── VIEW TOPBAR ── */
+.view-topbar{display:flex;align-items:center;gap:10px;padding:0 4px 14px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.search-wrap{display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:5px 10px;flex:1;max-width:420px}
+.search-wrap input{background:transparent;border:none;outline:none;color:var(--text);font-family:var(--mono);font-size:12px;width:100%}
+.search-wrap input::placeholder{color:var(--text3)}
+.view-count{font-family:var(--mono);font-size:11px;color:var(--text3)}
+
+/* ── SPECTRUM ── */
+.level-band{border-radius:6px;margin-bottom:8px;overflow:hidden;border:1px solid transparent}
+.level-band.krig{background:var(--krig-bg);border-color:var(--krig-border)}
+.level-band.grazon{background:var(--grazon-bg);border-color:var(--grazon-border)}
+.level-band.fred{background:var(--fred-bg);border-color:var(--fred-border)}
+.level-header{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid rgba(0,0,0,.06)}
+.level-tag{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;padding:2px 8px;border-radius:2px}
+.krig .level-tag{background:#fecaca;color:#991b1b}
+.grazon .level-tag{background:#fde68a;color:#92400e}
+.fred .level-tag{background:#a7f3d0;color:#065f46}
+.level-header-text{font-size:11px;color:var(--text2)}
+.level-header-count{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text3)}
+.methods-grid{display:flex;flex-direction:column}
+.method-row{display:flex;align-items:flex-start;border-bottom:1px solid rgba(0,0,0,.05);transition:background .12s}
+.method-row:last-child{border-bottom:none}
+.method-row:hover{background:rgba(26,61,124,.03)}
+.method-label{flex:0 0 220px;padding:9px 14px;border-right:1px solid rgba(0,0,0,.06);display:flex;flex-direction:column;gap:2px}
+.method-name{font-size:11px;color:var(--text);font-weight:500}
+.method-area{font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.method-example{font-size:10px;color:var(--text3);font-style:italic;margin-top:3px;display:none}
+.incidents-lane{flex:1;padding:7px 10px;display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start;min-height:34px}
+.empty-lane{font-family:var(--mono);font-size:10px;color:var(--text3);align-self:center}
+.inc-dot{width:8px;height:8px;border-radius:50%;background:var(--dot);cursor:pointer;transition:transform .1s,box-shadow .1s;flex-shrink:0}
+.inc-dot:hover{transform:scale(1.7);box-shadow:0 0 0 2px rgba(220,38,38,.2)}
+.inc-dot.se{background:var(--dot-se)}
+.inc-dot.se:hover{box-shadow:0 0 0 2px rgba(29,78,216,.2)}
+
+/* ── LIST ── */
+.list-item{display:grid;grid-template-columns:88px 60px 1fr 42px;gap:8px;align-items:start;padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.list-item:hover{background:var(--surface2)}
+.list-date{font-family:var(--mono);font-size:10px;color:var(--text3)}
+.list-cat{font-family:var(--mono);font-size:9px;padding:2px 5px;border-radius:2px;background:var(--surface2);text-transform:uppercase;align-self:center;text-align:center;border:1px solid var(--border)}
+.list-title{font-size:12px;color:var(--text);line-height:1.4}
+.list-country{font-family:var(--mono);font-size:10px;color:var(--text3);text-align:right}
+
+/* ── MINDMAP PAGE ── */
+#page-mindmap{flex-direction:column}
+.mm-toolbar{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;row-gap:6px}
+.mm-search{display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:5px 10px;width:220px}
+.mm-search input{background:transparent;border:none;outline:none;color:var(--text);font-family:var(--mono);font-size:12px;width:100%}
+.mm-search input::placeholder{color:var(--text3)}
+.mm-btn{font-family:var(--mono);font-size:10px;padding:4px 10px;border:1px solid var(--border2);border-radius:3px;background:transparent;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap}
+.mm-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.mm-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.mm-info{font-family:var(--mono);font-size:10px;color:var(--text3);white-space:nowrap}
+.mm-div{width:1px;height:18px;background:var(--border2)}
+.mm-cat-chips{display:flex;flex-wrap:wrap;gap:3px}
+.mm-chip{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;cursor:pointer;color:#fff;border:none;opacity:.9;transition:opacity .15s,transform .1s}
+.mm-chip:hover{opacity:1;transform:scale(1.04)}
+.mm-chip.off{opacity:.25;filter:grayscale(.6)}
+
+/* ── CRITICAL: mm-wrap must be position:relative with explicit pixel height ── */
+#mm-wrap{
+  flex:1;
+  position:relative;
+  overflow:hidden;
+  background:var(--bg);
+  /* min-height ensures markmap can measure it */
+  min-height:200px;
+}
+/* SVG fills wrapper absolutely so markmap gets real clientWidth/clientHeight */
+#mindmap{
+  position:absolute;
+  top:0;left:0;right:0;bottom:0;
+  width:100%;height:100%;
+}
+#mm-status{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  font-family:var(--mono);font-size:12px;color:var(--text3);
+  pointer-events:none;text-align:center;line-height:1.8;
+}
+
+/* ── DETAIL ── */
+#det-overlay{display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.25);backdrop-filter:blur(2px)}
+#det-panel{position:fixed;right:0;top:0;bottom:0;width:min(460px,95vw);background:var(--surface);border-left:1px solid var(--border2);z-index:500;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .22s ease;box-shadow:-4px 0 20px rgba(0,0,0,.08)}
+#det-panel.open{transform:translateX(0)}
+#det-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface2)}
+#det-close{font-size:18px;background:transparent;border:none;color:var(--text2);cursor:pointer;padding:0 4px}
+#det-body{flex:1;overflow-y:auto;padding:18px}
+#det-title{font-size:15px;font-weight:500;margin-bottom:14px;line-height:1.4}
+.det-meta{display:grid;grid-template-columns:80px 1fr;gap:5px 10px;margin-bottom:14px}
+.det-meta dt{font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding-top:2px}
+.det-meta dd{font-size:12px;color:var(--text2)}
+.det-summary{font-size:13px;line-height:1.6;padding:12px;background:var(--surface2);border-radius:4px;margin-bottom:14px;border:1px solid var(--border)}
+.det-method{font-family:var(--mono);font-size:10px;padding:8px 12px;border-radius:3px;border:1px solid var(--border2);color:var(--text2);margin-bottom:14px;background:var(--surface2);line-height:1.7}
+.det-link{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:#fff;text-decoration:none;padding:8px 14px;background:var(--accent);border-radius:3px;transition:background .15s}
+.det-link:hover{background:var(--accent-hover)}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+</head>
+<body>
+<div id="shell">
+
+<header id="site-header">
+  <div class="site-logo"><div class="logo-dot"></div>Svensk OSINT</div>
+  <div class="site-tagline">Hybridmethods – Öppen källaanalys</div>
+  <div class="hdr-space"></div>
+  <div class="hdr-meta" id="hdr-total"></div>
+</header>
+
+<nav id="nav-bar">
+  <button class="nav-btn active" data-page="spectrum">Spektrum</button>
+  <div class="nav-sep"></div>
+  <button class="nav-btn" data-page="list">Lista</button>
+  <div class="nav-sep"></div>
+  <button class="nav-btn" data-page="mindmap">Mindmap</button>
+  <span class="nav-count" id="nav-count"></span>
+</nav>
+
+<!-- SPEKTRUM -->
+<div class="page active" id="page-spectrum">
+  <div class="page-inner">
+    <div class="sidebar">
+      <div class="filter-section">
+        <div class="filter-label">Konfliktnivå</div>
+        <div class="filter-chips">
+          <button class="chip active" data-f="level" data-v="ALL">Alla</button>
+          <button class="chip" data-f="level" data-v="Krig">Krig</button>
+          <button class="chip" data-f="level" data-v="Gråzon">Gråzon</button>
+          <button class="chip" data-f="level" data-v="Fred">Fred</button>
+        </div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-label">Hybridmetod</div>
+        <div class="filter-chips">
+          <button class="chip active" data-f="hybrid" data-v="ALL">Alla</button>
+          <button class="chip" data-f="hybrid" data-v="true">Hybrid=Ja</button>
+          <button class="chip" data-f="hybrid" data-v="false">Ej hybrid</button>
+        </div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-label">Kategori</div>
+        <div class="filter-chips" id="chips-cat"><button class="chip active" data-f="cat" data-v="ALL">Alla</button></div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-label">Land</div>
+        <select class="fsel" id="s-country"><option value="ALL">Alla länder</option></select>
+        <span class="filter-hint">Blå prickar = Sverige</span>
+      </div>
+      <div class="filter-section">
+        <div class="filter-label">År</div>
+        <select class="fsel" id="s-year"><option value="ALL">Alla år</option></select>
+      </div>
+      <div class="filter-section">
+        <div class="filter-label">Gråzonsexempel</div>
+        <div class="filter-chips"><button class="chip" id="btn-ex" onclick="toggleEx()">Visa exempel</button></div>
+      </div>
+      <div class="sidebar-stats" id="s-stats"></div>
+    </div>
+    <div class="main-area">
+      <div class="view-topbar">
+        <div class="search-wrap"><span style="color:var(--text3);font-size:12px">⌕</span><input type="text" id="srch" placeholder="sök titel, plats, källa..."></div>
+        <span class="view-count" id="sp-count"></span>
+      </div>
+      <div id="spectrum-view"></div>
+    </div>
+  </div>
+</div>
+
+<!-- LISTA -->
+<div class="page" id="page-list">
+  <div class="page-inner">
+    <div class="sidebar">
+      <div class="filter-section">
+        <div class="filter-label">Konfliktnivå</div>
+        <div class="filter-chips">
+          <button class="chip active" data-f2="level" data-v="ALL">Alla</button>
+          <button class="chip" data-f2="level" data-v="Krig">Krig</button>
+          <button class="chip" data-f2="level" data-v="Gråzon">Gråzon</button>
+          <button class="chip" data-f2="level" data-v="Fred">Fred</button>
+        </div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-label">Kategori</div>
+        <div class="filter-chips" id="chips-cat2"><button class="chip active" data-f2="cat" data-v="ALL">Alla</button></div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-label">Land</div>
+        <select class="fsel" id="s-country2"><option value="ALL">Alla länder</option></select>
+      </div>
+      <div class="filter-section">
+        <div class="filter-label">År</div>
+        <select class="fsel" id="s-year2"><option value="ALL">Alla år</option></select>
+      </div>
+    </div>
+    <div class="main-area">
+      <div class="view-topbar">
+        <div class="search-wrap"><span style="color:var(--text3);font-size:12px">⌕</span><input type="text" id="srch2" placeholder="sök titel, plats, källa..."></div>
+        <span class="view-count" id="list-count"></span>
+      </div>
+      <div id="list-wrap"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MINDMAP -->
+<div class="page" id="page-mindmap">
+  <div class="mm-toolbar">
+    <div class="mm-search"><span style="color:var(--text3);font-size:12px">⌕</span><input type="text" id="mm-srch" placeholder="filtrera händelser..."></div>
+    <span class="mm-info" id="mm-info"></span>
+    <div class="mm-div"></div>
+    <button class="mm-btn" id="mm-se-btn" onclick="mmToggleSE()">Visa: Alla länder</button>
+    <button class="mm-btn" onclick="mmFit()">Anpassa vy</button>
+    <div class="mm-div"></div>
+    <div class="mm-cat-chips" id="mm-chips"></div>
+  </div>
+  <div id="mm-wrap">
+    <svg id="mindmap"></svg>
+    <div id="mm-status">Klicka på Mindmap-fliken för att ladda</div>
+  </div>
+</div>
+
+</div>
+
+<div id="det-overlay" onclick="closeDet()"></div>
+<div id="det-panel">
+  <div id="det-head">
+    <button id="det-close" onclick="closeDet()">×</button>
+    <span id="det-lvl"></span>
+    <span id="det-area" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:6px"></span>
+  </div>
+  <div id="det-body">
+    <div id="det-title"></div>
+    <dl class="det-meta" id="det-meta"></dl>
+    <div class="det-summary" id="det-summ"></div>
+    <div class="det-method" id="det-meth"></div>
+    <a id="det-link" class="det-link" target="_blank" rel="noopener">Öppna källa ↗</a>
+  </div>
+</div>
+
+<!-- Load order: d3 → markmap-lib → markmap-view -->
+<script src="events.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.18.12/dist/browser/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/markmap-view@0.18.12/dist/browser/index.min.js"></script>
+
+<script>
+const CN = {"SE": "Sverige", "UK": "UK", "US": "USA", "DE": "Tyskland", "UA": "Ukraina", "FR": "Frankrike", "PL": "Polen", "RU": "Ryssland", "NO": "Norge", "FI": "Finland", "NL": "Nederländerna", "DK": "Danmark", "LT": "Litauen", "CA": "Kanada", "EE": "Estland", "BE": "Belgien", "GR": "Grekland", "ES": "Spanien", "IT": "Italien", "AT": "Österrike", "EU": "EU", "IL": "Israel", "CN": "Kina", "TR": "Turkiet", "LV": "Lettland", "CZ": "Tjeckien", "HU": "Ungern", "RS": "Serbien", "MD": "Moldavien", "RO": "Rumänien", "IR": "Iran", "KP": "Nordkorea", "GB": "Storbritannien", "AU": "Australien", "JP": "Japan", "AE": "UAE", "TW": "Taiwan", "GL": "Grönland", "IS": "Island", "SK": "Slovakien", "BY": "Belarus", "AM": "Armenien", "AZ": "Azerbajdzjan", "KR": "Sydkorea", "YE": "Jemen", "SY": "Syrien", "GE": "Georgien", "Sweden": "Sverige"};
+const STRUCTURE = [{"area": "Subversiva metoder", "color": "#c94040", "methods": [{"name": "Omstörtande verksamhet / Desinformation", "level": "Gråzon", "grazon_ex": "Infiltration av transportfackförbund; strejkpåverkan"}, {"name": "Kartlägga nyckelpersoner / Illegal underrättelseinhämtning", "level": "Gråzon", "grazon_ex": "OSINT-kartläggning av Trafikverket-personal via LinkedIn"}, {"name": "Sabotage / Blockad", "level": "Gråzon", "grazon_ex": "Nord Stream-sabotaget sep 2022; Botniabanan-sabotage (hypotetiskt)"}, {"name": "Iscensätta kriminalitet och oro", "level": "Gråzon", "grazon_ex": "Organiserad stöld av kopparkabel; störning av tågtrafik"}]}, {"area": "Politiska medel", "color": "#d4804a", "methods": [{"name": "Iscensätta terrorhandlingar", "level": "Gråzon", "grazon_ex": "Bombattentat mot tåg i Madrid 2004; Brysselattentaten 2016"}, {"name": "Angrepp på samhällskritisk infrastruktur", "level": "Gråzon", "grazon_ex": "Rysslands raketangrepp mot ukrainsk järnvägsinfrastruktur 2022–"}, {"name": "Rättsliga processer / Sanktioner", "level": "Fred", "grazon_ex": "EU-sanktioner mot Ryssland inkl. transportrestriktioner 2022–"}]}, {"area": "Information", "color": "#4a7fd4", "methods": [{"name": "Desinformation och informationsoperationer", "level": "Gråzon", "grazon_ex": "Falska nyheter om kollaps av Öresundsbron; aktiekursmanipulation"}, {"name": "Cyberaktivism / Störning", "level": "Gråzon", "grazon_ex": "DDoS mot SJ.se och Trafikverket.se under spänningsperiod"}]}, {"area": "Militära medel", "color": "#6a5fc1", "methods": [{"name": "Specialoperationer / Spaning", "level": "Gråzon", "grazon_ex": "GRU-operationer mot civila mål i tredje land"}, {"name": "Militära övningar / Maktprojektion", "level": "Gråzon", "grazon_ex": "Ryskt flygplan simulerar attackprofil mot Gotland/Stockholm"}]}, {"area": "Psykologiska medel", "color": "#4aaa7a", "methods": [{"name": "Hot om användning av maktmedel", "level": "Gråzon", "grazon_ex": "Ransomware-hot mot SCADA-system i infrastrukturanläggning"}]}, {"area": "Diplomatiska medel", "color": "#888", "methods": [{"name": "Massförstörelsevapen / Hot", "level": "Krig", "grazon_ex": "Kärnvapenhot under Kubakrisen 1962"}, {"name": "Partnerskap / Allianser", "level": "Fred", "grazon_ex": "Sveriges NATO-inträde mars 2024; förändrad säkerhetssituation"}]}];
+const CAT_META = {"HYBRID": {"label": "Hybrid", "color": "#b45309"}, "INTEL": {"label": "Underrättelser", "color": "#6d28d9"}, "INFRA": {"label": "Infrastruktur", "color": "#b91c1c"}, "TERROR": {"label": "Terror", "color": "#991b1b"}, "LEGAL": {"label": "Rättsligt", "color": "#1e40af"}, "POLICY": {"label": "Policy", "color": "#065f46"}, "DRONE": {"label": "Drönare", "color": "#7c3aed"}, "MAR": {"label": "Marint", "color": "#0e7490"}, "MIL": {"label": "Militärt", "color": "#374151"}, "GPS": {"label": "GPS/GNSS", "color": "#92400e"}, "NUCLEAR": {"label": "Nukleärt", "color": "#7f1d1d"}, "CYBER": {"label": "Cyber", "color": "#1e3a5f"}, "THREAT": {"label": "Hot", "color": "#6b7280"}, "CRIME": {"label": "Brott", "color": "#374151"}};
+// EVENTS loaded from events.js
+
+const CAP = 120; // max events shown per category in mindmap
+
+let sf = {level:'ALL',hybrid:'ALL',cat:'ALL',country:'ALL',year:'ALL',search:''};
+let lf = {level:'ALL',cat:'ALL',country:'ALL',year:'ALL',search:''};
+let mmSEOnly = false, mmSearch = '';
+let mmActiveCats = new Set(Object.keys(CAT_META));
+let mmInst = null;
+let showEx = false;
+let mmReady = false;
+
+/* ── NAV ── */
+document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const pg = btn.dataset.page;
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-'+pg).classList.add('active');
+    if (pg === 'list') renderList();
+    if (pg === 'mindmap') {
+      // Give the page a frame to render and get real dimensions before markmap measures
+      requestAnimationFrame(() => requestAnimationFrame(() => mmRebuild()));
+    }
+  });
+});
+
+/* ── FILTER ── */
+function applyF(evs, f) {
+  return evs.filter(e => {
+    if (f.level !== 'ALL' && e.lv !== f.level) return false;
+    if (f.hybrid !== undefined && f.hybrid !== 'ALL') {
+      if (f.hybrid === 'true' && !e.h) return false;
+      if (f.hybrid === 'false' && e.h) return false;
+    }
+    if (f.cat !== 'ALL' && e.ct !== f.cat) return false;
+    if (f.country !== 'ALL' && (e.c === 'Sweden' ? 'SE' : e.c) !== f.country) return false;
+    if (f.year !== 'ALL' && !(e.d||'').startsWith(f.year)) return false;
+    if (f.search) {
+      if (!(e.t+' '+e.p+' '+e.s+' '+e.src+' '+e.c).toLowerCase().includes(f.search)) return false;
+    }
+    return true;
+  });
+}
+
+/* ── BUILD UI ── */
+function buildUI() {
+  document.getElementById('hdr-total').textContent = EVENTS.length + ' händelser';
+  const cats = [...new Set(EVENTS.map(e=>e.ct))].sort();
+
+  cats.forEach(c => {
+    const meta = CAT_META[c]||{};
+    ['chips-cat','chips-cat2'].forEach((id,i) => {
+      const b = document.createElement('button');
+      b.className='chip'; b.dataset[i===0?'f':'f2']='cat'; b.dataset.v=c;
+      b.textContent=meta.label||c; document.getElementById(id).appendChild(b);
+    });
+  });
+
+  const mc = document.getElementById('mm-chips');
+  cats.forEach(c => {
+    const meta = CAT_META[c]||{};
+    const b = document.createElement('button');
+    b.className='mm-chip'; b.dataset.cat=c;
+    b.textContent=meta.label||c; b.style.background=meta.color||'#666';
+    b.addEventListener('click', () => {
+      mmActiveCats.has(c) ? mmActiveCats.delete(c) : mmActiveCats.add(c);
+      b.classList.toggle('off', !mmActiveCats.has(c));
+      mmRebuild();
+    });
+    mc.appendChild(b);
+  });
+
+  const countries=[...new Set(EVENTS.map(e=>e.c==='Sweden'?'SE':e.c))].sort();
+  const years=[...new Set(EVENTS.map(e=>(e.d||'?').slice(0,4)))].sort((a,b)=>b-a);
+
+  ['s-country','s-country2'].forEach(id => {
+    const el=document.getElementById(id);
+    countries.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=(CN[c]||c)+' ('+c+')';el.appendChild(o);});
+    el.addEventListener('change',e=>{
+      (id==='s-country'?sf:lf).country=e.target.value;
+      id==='s-country'?renderSpectrum():renderList();
+    });
+  });
+  ['s-year','s-year2'].forEach(id => {
+    const el=document.getElementById(id);
+    years.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y;el.appendChild(o);});
+    el.addEventListener('change',e=>{
+      (id==='s-year'?sf:lf).year=e.target.value;
+      id==='s-year'?renderSpectrum():renderList();
+    });
+  });
+
+  document.querySelectorAll('.chip[data-f]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const{f,v}=b.dataset; sf[f]=v;
+      document.querySelectorAll(`.chip[data-f="${f}"]`).forEach(x=>x.classList.remove('active'));
+      b.classList.add('active'); renderSpectrum();
+    });
+  });
+  document.querySelectorAll('.chip[data-f2]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const f2=b.dataset.f2,v=b.dataset.v; lf[f2]=v;
+      document.querySelectorAll(`.chip[data-f2="${f2}"]`).forEach(x=>x.classList.remove('active'));
+      b.classList.add('active'); renderList();
+    });
+  });
+
+  document.getElementById('srch').addEventListener('input',e=>{sf.search=e.target.value.toLowerCase();renderSpectrum();});
+  document.getElementById('srch2').addEventListener('input',e=>{lf.search=e.target.value.toLowerCase();renderList();});
+  document.getElementById('mm-srch').addEventListener('input',e=>{mmSearch=e.target.value.toLowerCase();mmRebuild();});
+}
+
+/* ── SPECTRUM ── */
+function renderSpectrum() {
+  const vis=applyF(EVENTS,sf);
+  const byM={};vis.forEach(e=>{if(!byM[e.m])byM[e.m]=[];byM[e.m].push(e);});
+  document.getElementById('sp-count').textContent=vis.length+' händelser';
+  document.getElementById('nav-count').textContent=vis.length+' / '+EVENTS.length;
+  const byL={};vis.forEach(e=>{byL[e.lv]=(byL[e.lv]||0)+1;});
+  document.getElementById('s-stats').innerHTML=`
+    <div class="stat-row"><span>Synliga</span><span>${vis.length}</span></div>
+    <div class="stat-row"><span>Krig</span><span style="color:var(--krig)">${byL['Krig']||0}</span></div>
+    <div class="stat-row"><span>Gråzon</span><span style="color:var(--grazon)">${byL['Gråzon']||0}</span></div>
+    <div class="stat-row"><span>Fred</span><span style="color:var(--fred)">${byL['Fred']||0}</span></div>
+    <div class="stat-row"><span>Totalt</span><span>${EVENTS.length}</span></div>`;
+  const sv=document.getElementById('spectrum-view');sv.innerHTML='';
+  [
+    {key:'Krig',cls:'krig',label:'KRIG',desc:'Väpnad konflikt'},
+    {key:'Gråzon',cls:'grazon',label:'GRÅZON',desc:'Tvetydig zon – hybridmetoder med plausibel förnekbarhet'},
+    {key:'Fred',cls:'fred',label:'FRED',desc:'Normalläge – legitima statsverktyg och beroendeskapande'},
+  ].forEach(lv=>{
+    if(sf.level!=='ALL'&&sf.level!==lv.key)return;
+    const le=vis.filter(e=>e.lv===lv.key);
+    const mfl=[];
+    STRUCTURE.forEach(area=>area.methods.forEach(m=>{if(m.level===lv.key)mfl.push({...m,area:area.area,areaColor:area.color});}));
+    const band=document.createElement('div');band.className='level-band '+lv.cls;
+    band.innerHTML=`<div class="level-header"><span class="level-tag">${lv.label}</span><span class="level-header-text">${lv.desc}</span><span class="level-header-count">${le.length} händelser</span></div><div class="methods-grid" id="mg-${lv.key}"></div>`;
+    sv.appendChild(band);
+    const grid=document.getElementById('mg-'+lv.key);
+    mfl.forEach(method=>{
+      const evs=byM[method.name]||[];
+      const row=document.createElement('div');row.className='method-row';
+      row.innerHTML=`<div class="method-label"><span class="method-name">${method.name}</span><span class="method-area" style="color:${method.areaColor}99">${method.area}</span><span class="method-example">${method.grazon_ex}</span></div>`;
+      const lane=document.createElement('div');lane.className='incidents-lane';
+      if(!evs.length)lane.innerHTML='<span class="empty-lane">—</span>';
+      else evs.forEach(ev=>{
+        const dot=document.createElement('div');
+        dot.className='inc-dot'+(ev.c==='SE'||ev.c==='Sweden'?' se':'');
+        dot.title=ev.t+' ('+ev.c+', '+(ev.d||'?')+')';
+        dot.addEventListener('click',()=>openDet(ev,method));
+        lane.appendChild(dot);
+      });
+      row.appendChild(lane);grid.appendChild(row);
+    });
+    const inL=new Set(mfl.map(m=>m.name));
+    const grp={};
+    le.filter(e=>!inL.has(e.m)).forEach(e=>{if(!grp[e.m])grp[e.m]=[];grp[e.m].push(e);});
+    Object.entries(grp).forEach(([mn,evs])=>{
+      const row=document.createElement('div');row.className='method-row';
+      row.innerHTML=`<div class="method-label"><span class="method-name" style="opacity:.7">${mn}</span><span class="method-area">Övriga</span></div>`;
+      const lane=document.createElement('div');lane.className='incidents-lane';
+      evs.forEach(ev=>{
+        const dot=document.createElement('div');
+        dot.className='inc-dot'+(ev.c==='SE'||ev.c==='Sweden'?' se':'');
+        dot.title=ev.t+' ('+ev.c+', '+(ev.d||'?')+')';
+        dot.addEventListener('click',()=>openDet(ev,{name:mn,area:'',grazon_ex:''}));
+        lane.appendChild(dot);
+      });
+      row.appendChild(lane);grid.appendChild(row);
+    });
+  });
+}
+
+/* ── LIST ── */
+function renderList() {
+  const vis=applyF(EVENTS,lf);
+  document.getElementById('list-count').textContent=vis.length+' händelser';
+  const wrap=document.getElementById('list-wrap');wrap.innerHTML='';
+  vis.slice(0,600).forEach(ev=>{
+    const row=document.createElement('div');row.className='list-item';
+    const meta=CAT_META[ev.ct]||{};
+    row.innerHTML=`<span class="list-date">${ev.d||'?'}</span><span class="list-cat" style="color:${meta.color||'#666'}">${ev.ct}</span><span class="list-title">${ev.t}</span><span class="list-country">${ev.c==='Sweden'?'SE':ev.c}</span>`;
+    row.addEventListener('click',()=>openDet(ev,{name:ev.m,area:ev.a,grazon_ex:''}));
+    wrap.appendChild(row);
+  });
+  if(vis.length>600){const n=document.createElement('div');n.style.cssText='padding:12px;font-family:var(--mono);font-size:10px;color:var(--text3);text-align:center';n.textContent='Visar 600 av '+vis.length+' – använd filter';wrap.appendChild(n);}
+}
+
+/* ── MARKMAP ── */
+function cleanTitle(t) {
+  return (t||'')
+    .replace(/[\[\]]/g, '')       // remove square brackets (break md link syntax)
+    .replace(/`/g, '')            // remove backticks
+    .replace(/[*_]/g, '')         // remove emphasis markers
+    .slice(0, 90);
+}
+
+function buildMd() {
+  let md = '# Svensk OSINT
+
+';
+  let total = 0;
+  Object.keys(CAT_META).forEach(cat => {
+    if (!mmActiveCats.has(cat)) return;
+    const meta = CAT_META[cat]||{};
+    let evs = EVENTS.filter(e => e.ct === cat);
+    if (mmSEOnly) evs = evs.filter(e => e.c==='SE'||e.c==='Sweden');
+    if (mmSearch) evs = evs.filter(e =>
+      (e.t+' '+e.p+' '+e.c+' '+e.src).toLowerCase().includes(mmSearch)
+    );
+    if (!evs.length) return;
+    total += evs.length;
+    const shown = evs.slice(0, CAP);
+    const hidden = evs.length - shown.length;
+    md += `## ${meta.label||cat} (${evs.length})
+
+`;
+    shown.forEach(ev => {
+      const title = cleanTitle(ev.t);
+      const c = ev.c==='Sweden'?'SE':ev.c;
+      const d = (ev.d||'?').slice(0,10);
+      // Markmap renders [text](url) as a clickable link node
+      if (ev.u) {
+        md += `- [${d} · ${c} · ${title}](${ev.u})
+`;
+      } else {
+        md += `- ${d} · ${c} · ${title}
+`;
+      }
+    });
+    if (hidden > 0) {
+      md += `- *... och ${hidden} fler händelser (använd filter)*
+`;
+    }
+    md += '
+';
+  });
+  document.getElementById('mm-info').textContent = total + ' händelser';
+  return md;
+}
+
+function mmRebuild() {
+  const status = document.getElementById('mm-status');
+  status.textContent = 'Bygger mindmap…';
+  status.style.display = 'block';
+
+  // Double rAF ensures the page layout has fully painted and #mm-wrap has real dimensions
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    try {
+      // markmap-lib exports to window['markmap-lib'], markmap-view to window['markmap-view']
+      // Both may also merge into window.markmap depending on build
+      const mmLib  = window['markmap-lib']  || window.markmap;
+      const mmView = window['markmap-view'] || window.markmap;
+
+      if (!mmLib || !mmView) {
+        status.textContent = 'markmap-bibliotek saknas — kontrollera nätverksanslutning';
+        return;
+      }
+
+      const Transformer = mmLib.Transformer;
+      const Markmap     = mmView.Markmap;
+      const loadCSS     = mmView.loadCSS;
+      const loadJS      = mmView.loadJS;
+
+      if (!Transformer || !Markmap) {
+        status.textContent = 'Transformer=' + typeof Transformer + ' Markmap=' + typeof Markmap;
+        return;
+      }
+
+      const md = buildMd();
+      const transformer = new Transformer();
+      const { root, features } = transformer.transform(md);
+      const assets = transformer.getUsedAssets(features);
+      if (assets && assets.styles) loadCSS(assets.styles);
+      if (assets && assets.scripts) loadJS(assets.scripts, { getMarkmap: () => mmView });
+
+      // Always destroy and recreate — avoids stale instance bugs
+      const svgEl = document.getElementById('mindmap');
+      if (mmInst) {
+        try { mmInst.destroy(); } catch(e) {}
+        mmInst = null;
+        // Clear SVG content
+        while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
+      }
+
+      mmInst = Markmap.create(svgEl, {
+        colorFreezeLevel: 2,   // freeze colors at category level
+        duration: 250,
+        maxWidth: 360,
+        initialExpandLevel: 1, // root expanded, categories collapsed — user clicks to open
+        spacingVertical: 5,
+        spacingHorizontal: 80,
+      }, root);
+
+      status.style.display = 'none';
+    } catch(err) {
+      status.textContent = 'Fel: ' + err.message;
+      console.error('markmap error:', err);
+    }
+  }));
+}
+
+function mmFit() { if (mmInst) mmInst.fit(); }
+
+function mmToggleSE() {
+  mmSEOnly = !mmSEOnly;
+  const btn = document.getElementById('mm-se-btn');
+  btn.textContent = mmSEOnly ? 'Visa: Sverige' : 'Visa: Alla länder';
+  btn.classList.toggle('active', mmSEOnly);
+  mmRebuild();
+}
+
+/* ── DETAIL ── */
+function openDet(ev, method) {
+  const lc={Krig:'#991b1b',Gråzon:'#92400e',Fred:'#065f46'}[ev.lv]||'#666';
+  document.getElementById('det-lvl').innerHTML=`<span style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:2px;background:${lc}18;color:${lc};border:1px solid ${lc}40">${ev.lv||'?'}</span>`;
+  document.getElementById('det-area').textContent=method.area||ev.a||'';
+  document.getElementById('det-title').textContent=ev.t;
+  const c=ev.c==='Sweden'?'SE':ev.c;
+  document.getElementById('det-meta').innerHTML=`<dt>Datum</dt><dd>${ev.d||'okänt'}</dd><dt>Land</dt><dd>${CN[c]||c} (${c})</dd><dt>Plats</dt><dd>${ev.p||'—'}</dd><dt>Kategori</dt><dd>${ev.ct}</dd><dt>Hybridmetod</dt><dd style="color:${ev.h?'#065f46':'#6b7280'}">${ev.h?'✓ Ja':'— Nej'}</dd><dt>Källa</dt><dd>${ev.src||'—'}</dd>`;
+  document.getElementById('det-summ').textContent=ev.s||'(ingen sammanfattning)';
+  document.getElementById('det-meth').innerHTML=`<strong>Gråzonsmapping:</strong> ${method.name||ev.m}<br>`+(method.area?`<span style="color:var(--text3)">${method.area}</span><br>`:'')+( method.grazon_ex?`<em style="color:var(--text3);font-size:9px">Exempel: ${method.grazon_ex}</em>`:'');
+  const lnk=document.getElementById('det-link');
+  if(ev.u){lnk.href=ev.u;lnk.style.display='inline-flex';}else lnk.style.display='none';
+  document.getElementById('det-overlay').style.display='block';
+  document.getElementById('det-panel').classList.add('open');
+}
+function closeDet(){
+  document.getElementById('det-overlay').style.display='none';
+  document.getElementById('det-panel').classList.remove('open');
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDet();});
+function toggleEx(){
+  showEx=!showEx;
+  document.querySelectorAll('.method-example').forEach(el=>el.style.display=showEx?'block':'none');
+  document.getElementById('btn-ex').classList.toggle('active',showEx);
+}
+
+buildUI();
+renderSpectrum();
+</script>
+</body>
+</html>
